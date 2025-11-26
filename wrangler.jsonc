@@ -22,6 +22,15 @@
 			}
 		]
 	},
+	"r2_buckets": [
+		{
+			"binding": "PRESENTATIONS",
+			"bucket_name": "mcp-presentations"
+		}
+	],
+	"vars": {
+		"WORKER_URL": "http://localhost:8787"
+	},
 	"observability": {
 		"enabled": true
 	}

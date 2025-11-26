@@ -152,11 +152,108 @@ export class MyMCP extends McpAgent {
 				}
 			},
 		);
+
+		// Tool to get URL for a stored presentation
+		this.server.tool(
+			"get_presentation_url",
+			{
+				filename: z.string().describe("The filename of the stored presentation"),
+			},
+			async ({ filename }) => {
+				try {
+					const r2 = (this.env as Env).PRESENTATIONS;
+					const object = await r2.head(filename);
+
+					if (!object) {
+						return {
+							content: [
+								{
+									type: "text",
+									text: `Error: Presentation "${filename}" not found in storage.`,
+								},
+							],
+						};
+					}
+
+					const downloadUrl = `${(this.env as Env).WORKER_URL}/download/${filename}`;
+					const fileSizeKB = Math.round((object.size || 0) / 1024);
+
+					return {
+						content: [
+							{
+								type: "text",
+								text: `📎 Presentation File: ${filename}\n\nOriginal Title: ${object.customMetadata?.originalTitle || "Unknown"}\nCreated: ${object.customMetadata?.createdAt || "Unknown"}\nSlides: ${object.customMetadata?.slideCount || "Unknown"}\nFile Size: ${fileSizeKB} KB\n\nDownload URL: ${downloadUrl}`,
+							},
+						],
+					};
+				} catch (error) {
+					return {
+						content: [
+							{
+								type: "text",
+								text: `Error: Failed to retrieve presentation URL - ${error instanceof Error ? error.message : String(error)}`,
+							},
+						],
+					};
+				}
+			},
+		);
+
+		// Tool to list all stored presentations
+		this.server.tool(
+			"list_presentations",
+			{
+				limit: z.number().optional().describe("Maximum number of presentations to list (default: 10)"),
+			},
+			async ({ limit }) => {
+				try {
+					const r2 = (this.env as Env).PRESENTATIONS;
+					const listed = await r2.list({ limit: limit || 10 });
+
+					if (listed.objects.length === 0) {
+						return {
+							content: [
+								{
+									type: "text",
+									text: "No presentations found in storage.",
+								},
+							],
+						};
+					}
+
+					const presentationList = listed.objects
+						.map((obj: R2Object) => {
+							const fileSizeKB = Math.round(obj.size / 1024);
+							const downloadUrl = `${(this.env as Env).WORKER_URL}/download/${obj.key}`;
+							return `• ${obj.customMetadata?.originalTitle || obj.key}\n  Filename: ${obj.key}\n  Created: ${obj.customMetadata?.createdAt || obj.uploaded.toISOString()}\n  Size: ${fileSizeKB} KB\n  Slides: ${obj.customMetadata?.slideCount || "Unknown"}\n  URL: ${downloadUrl}`;
+						})
+						.join("\n\n");
+
+					return {
+						content: [
+							{
+								type: "text",
+								text: `📋 Stored Presentations (${listed.objects.length}):\n\n${presentationList}`,
+							},
+						],
+					};
+				} catch (error) {
+					return {
+						content: [
+							{
+								type: "text",
+								text: `Error: Failed to list presentations - ${error instanceof Error ? error.message : String(error)}`,
+							},
+						],
+					};
+				}
+			},
+		);
 	}
 }
 
 export default {
-	fetch(request: Request, env: Env, ctx: ExecutionContext) {
+	async fetch(request: Request, env: Env, ctx: ExecutionContext) {
 		const url = new URL(request.url);
 
 		if (url.pathname === "/sse" || url.pathname === "/sse/message") {
@@ -165,6 +262,26 @@ export default {
 
 		if (url.pathname === "/mcp") {
 			return MyMCP.serve("/mcp").fetch(request, env, ctx);
+		}
+
+		// Handle file downloads from R2
+		if (url.pathname.startsWith("/download/")) {
+			const filename = url.pathname.substring("/download/".length);
+			if (!filename) {
+				return new Response("Filename required", { status: 400 });
+			}
+
+			const object = await env.PRESENTATIONS.get(filename);
+			if (!object) {
+				return new Response("File not found", { status: 404 });
+			}
+
+			const headers = new Headers();
+			object.writeHttpMetadata(headers);
+			headers.set("Content-Disposition", `attachment; filename="${object.customMetadata?.originalTitle || filename}"`
+			);
+
+			return new Response(object.body, { headers });
 		}
 
 		return new Response("Not found", { status: 404 });

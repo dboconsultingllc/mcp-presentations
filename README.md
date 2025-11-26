@@ -1,15 +1,20 @@
 # MCP Presentations - Remote MCP Server with PowerPoint Creation
 
-This MCP server runs on Cloudflare Workers and provides three tools:
+This MCP server runs on Cloudflare Workers and provides five tools:
 - ✅ **add** - Simple addition calculator
 - ✅ **calculate** - Multi-operation calculator (add, subtract, multiply, divide)
-- ✅ **create_presentation** - Creates PowerPoint presentations using Python
+- ✅ **create_presentation** - Creates PowerPoint presentations and stores them in R2
+- ✅ **get_presentation_url** - Retrieves download URL for stored presentations
+- ✅ **list_presentations** - Lists all stored presentations with metadata
 
 ## Architecture
 
-This project uses **two Cloudflare Workers**:
+This project uses:
 1. **Main Worker** (TypeScript) - MCP server that handles tool requests
-2. **Python Worker** - PowerPoint generation service using python-pptx library
+2. **R2 Storage** - Cloudflare R2 bucket for storing generated presentations
+3. **Download Endpoint** - HTTP endpoint for accessing stored files
+
+Generated presentations are automatically stored in R2 with metadata and can be accessed via download URLs.
 
 ## Get started: 
 
@@ -24,23 +29,23 @@ npm create cloudflare@latest -- my-mcp-server --template=cloudflare/ai/demos/rem
 
 ## 🚀 Quick Deployment
 
-**Important:** Deploy the Python Worker FIRST, then the main worker.
-
+**Prerequisites:** Create R2 bucket first (if not already created)
 ```powershell
-# Step 1: Deploy Python Worker
-cd python-worker
-wrangler deploy
+wrangler r2 bucket create mcp-presentations
+```
 
-# Step 2: Deploy Main Worker
-cd ..
+**Deploy the worker:**
+```powershell
 wrangler deploy
 ```
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed step-by-step instructions.
+Before deploying to production, update `WORKER_URL` in `wrangler.jsonc` to your production URL.
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) and [R2-STORAGE.md](./R2-STORAGE.md) for detailed instructions.
 
 ## 🎨 Using the PowerPoint Tool
 
-The `create_presentation` tool accepts:
+The `create_presentation` tool creates presentations and stores them in R2:
 - **title**: Presentation filename
 - **slides**: Array of slide objects with layout, title, and bullets
 
@@ -61,6 +66,22 @@ Example:
   ]
 }
 ```
+
+**Returns:** Download URL and metadata
+
+### Additional Tools
+
+**Get presentation URL:**
+```json
+{ "filename": "My_Presentation_1732567890123.pptx" }
+```
+
+**List all presentations:**
+```json
+{ "limit": 10 }
+```
+
+See [R2-STORAGE.md](./R2-STORAGE.md) for complete R2 storage documentation.
 
 ## Customizing your MCP Server
 
@@ -103,6 +124,7 @@ Restart Claude and you should see the tools become available.
 **[📖 Complete Documentation Index](./INDEX.md)** - Find any documentation quickly!
 
 ### Quick Access
+- **[R2-STORAGE.md](./R2-STORAGE.md)** - R2 storage configuration and usage guide
 - **[QUICKREF.md](./QUICKREF.md)** - Quick reference card with common commands
 - **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Detailed deployment guide (step-by-step)
 - **[EXAMPLES.md](./EXAMPLES.md)** - PowerPoint usage examples and AI prompts
