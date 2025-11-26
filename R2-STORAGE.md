@@ -55,18 +55,18 @@ Lists all stored presentations with their metadata and download URLs.
 }
 ```
 
-### 3. Download Endpoint
+### 3. Direct R2 Access
 
-Access presentations via HTTP:
+Presentations are accessible directly via the R2 public bucket URL:
 ```
-GET /download/{filename}
+https://pub-cf644c6898c249269604aa5406c2dacc.r2.dev/{filename}
 ```
 
-This endpoint:
-- Retrieves the file from R2
-- Sets appropriate content-type headers
-- Returns the binary PPTX file as an attachment
-- Uses the original title as the download filename
+Benefits:
+- Direct access to files without going through the worker
+- Leverages Cloudflare's global CDN for fast downloads
+- No additional processing or bandwidth costs on the worker
+- Standard HTTP caching works automatically
 
 ## Configuration
 
@@ -77,7 +77,13 @@ This endpoint:
 wrangler r2 bucket create mcp-presentations
 ```
 
-2. The bucket binding is already configured in `wrangler.jsonc`:
+2. Enable public access on your R2 bucket to get a public URL:
+   - Go to Cloudflare Dashboard → R2
+   - Select your `mcp-presentations` bucket
+   - Go to Settings → Public Access
+   - Enable "Allow Access" to get a public URL like: `https://pub-xxxxxx.r2.dev`
+
+3. The bucket binding is already configured in `wrangler.jsonc`:
 ```jsonc
 "r2_buckets": [
   {
@@ -87,14 +93,14 @@ wrangler r2 bucket create mcp-presentations
 ]
 ```
 
-3. Update the `WORKER_URL` variable in `wrangler.jsonc` for production:
+4. Update the `R2_PUBLIC_URL` variable in `wrangler.jsonc`:
 ```jsonc
 "vars": {
-  "WORKER_URL": "https://mcp-presentations.your-account.workers.dev"
+  "R2_PUBLIC_URL": "https://pub-cf644c6898c249269604aa5406c2dacc.r2.dev"
 }
 ```
 
-Replace `your-account` with your Cloudflare account subdomain.
+Replace with your actual R2 public bucket URL from step 2.
 
 ## Usage Example
 
@@ -148,12 +154,14 @@ Replace `your-account` with your Cloudflare account subdomain.
 ## Development
 
 ### Local Development
-During local development with `wrangler dev`, the WORKER_URL is set to `http://localhost:8787`.
+During local development with `wrangler dev`, files are stored in local R2 storage. The R2_PUBLIC_URL points to your production bucket.
 
 ### Production Deployment
-1. Update `WORKER_URL` in `wrangler.jsonc` to your production URL
-2. Deploy: `wrangler deploy`
-3. The worker will be available at: `https://mcp-presentations.your-account.workers.dev`
+1. Ensure your R2 bucket has public access enabled
+2. Update `R2_PUBLIC_URL` in `wrangler.jsonc` to your R2 public URL
+3. Deploy: `wrangler deploy`
+
+**Important:** Files created during local development are stored locally and won't be accessible via the public URL. Only files created after deploying to production will be accessible via the public R2 URL.
 
 ## File Naming
 Files are stored with sanitized names and timestamps:

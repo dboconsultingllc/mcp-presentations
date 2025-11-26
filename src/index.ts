@@ -128,15 +128,34 @@ export class MyMCP extends McpAgent {
 						// blank layout - just leave the slide empty
 					}
 
-					// Generate the PowerPoint file
+					// Generate the PowerPoint file as binary
 					const output = (await pres.write({ outputType: "base64" })) as string;
-					const fileSize = Math.round((output.length * 3) / 4 / 1024); // Approximate size in KB
+					const binaryData = Uint8Array.from(atob(output), (c) => c.charCodeAt(0));
+					const fileSize = Math.round(binaryData.length / 1024); // Size in KB
+
+					// Store file in R2
+					const filename = `${title.replace(/[^a-zA-Z0-9-_]/g, "_")}_${Date.now()}.pptx`;
+					const r2 = (this.env as Env).PRESENTATIONS;
+					await r2.put(filename, binaryData, {
+						httpMetadata: {
+							contentType:
+								"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+						},
+						customMetadata: {
+							originalTitle: title,
+							createdAt: new Date().toISOString(),
+							slideCount: slides.length.toString(),
+						},
+					});
+
+					// Generate download URL using R2 public bucket
+					const downloadUrl = `${(this.env as Env).R2_PUBLIC_URL}/${filename}`;
 
 					return {
 						content: [
 							{
 								type: "text",
-								text: `✅ PowerPoint presentation "${title}.pptx" created successfully with ${slides.length} slide(s)!\n\nFile size: ~${fileSize} KB\n\nThe presentation has been generated.`,
+								text: `✅ PowerPoint presentation "${title}.pptx" created successfully with ${slides.length} slide(s)!\n\nFile size: ${fileSize} KB\nFilename: ${filename}\n\nDownload URL: ${downloadUrl}\n\nUse the get_presentation_url tool with filename "${filename}" to retrieve the download link again.`,
 							},
 						],
 					};
@@ -175,7 +194,7 @@ export class MyMCP extends McpAgent {
 						};
 					}
 
-					const downloadUrl = `${(this.env as Env).WORKER_URL}/download/${filename}`;
+					const downloadUrl = `${(this.env as Env).R2_PUBLIC_URL}/${filename}`;
 					const fileSizeKB = Math.round((object.size || 0) / 1024);
 
 					return {
@@ -221,10 +240,10 @@ export class MyMCP extends McpAgent {
 						};
 					}
 
-					const presentationList = listed.objects
-						.map((obj: R2Object) => {
-							const fileSizeKB = Math.round(obj.size / 1024);
-							const downloadUrl = `${(this.env as Env).WORKER_URL}/download/${obj.key}`;
+				const presentationList = listed.objects
+					.map((obj: R2Object) => {
+						const fileSizeKB = Math.round(obj.size / 1024);
+						const downloadUrl = `${(this.env as Env).R2_PUBLIC_URL}/${obj.key}`;
 							return `• ${obj.customMetadata?.originalTitle || obj.key}\n  Filename: ${obj.key}\n  Created: ${obj.customMetadata?.createdAt || obj.uploaded.toISOString()}\n  Size: ${fileSizeKB} KB\n  Slides: ${obj.customMetadata?.slideCount || "Unknown"}\n  URL: ${downloadUrl}`;
 						})
 						.join("\n\n");
@@ -253,7 +272,7 @@ export class MyMCP extends McpAgent {
 }
 
 export default {
-	async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+	fetch(request: Request, env: Env, ctx: ExecutionContext) {
 		const url = new URL(request.url);
 
 		if (url.pathname === "/sse" || url.pathname === "/sse/message") {
@@ -262,26 +281,6 @@ export default {
 
 		if (url.pathname === "/mcp") {
 			return MyMCP.serve("/mcp").fetch(request, env, ctx);
-		}
-
-		// Handle file downloads from R2
-		if (url.pathname.startsWith("/download/")) {
-			const filename = url.pathname.substring("/download/".length);
-			if (!filename) {
-				return new Response("Filename required", { status: 400 });
-			}
-
-			const object = await env.PRESENTATIONS.get(filename);
-			if (!object) {
-				return new Response("File not found", { status: 404 });
-			}
-
-			const headers = new Headers();
-			object.writeHttpMetadata(headers);
-			headers.set("Content-Disposition", `attachment; filename="${object.customMetadata?.originalTitle || filename}"`
-			);
-
-			return new Response(object.body, { headers });
 		}
 
 		return new Response("Not found", { status: 404 });

@@ -11,10 +11,9 @@ This MCP server runs on Cloudflare Workers and provides five tools:
 
 This project uses:
 1. **Main Worker** (TypeScript) - MCP server that handles tool requests
-2. **R2 Storage** - Cloudflare R2 bucket for storing generated presentations
-3. **Download Endpoint** - HTTP endpoint for accessing stored files
+2. **R2 Storage** - Cloudflare R2 bucket with public access for storing generated presentations
 
-Generated presentations are automatically stored in R2 with metadata and can be accessed via download URLs.
+Generated presentations are automatically stored in R2 with metadata and can be accessed directly via public R2 URLs, leveraging Cloudflare's global CDN for fast downloads.
 
 ## Get started: 
 

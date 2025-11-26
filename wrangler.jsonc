@@ -29,7 +29,7 @@
 		}
 	],
 	"vars": {
-		"WORKER_URL": "http://localhost:8787"
+		"R2_PUBLIC_URL": "https://pub-cf644c6898c249269604aa5406c2dacc.r2.dev"
 	},
 	"observability": {
 		"enabled": true
