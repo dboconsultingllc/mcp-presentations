@@ -1,6 +1,15 @@
-# Building a Remote MCP Server on Cloudflare (Without Auth)
+# MCP Presentations - Remote MCP Server with PowerPoint Creation
 
-This example allows you to deploy a remote MCP server that doesn't require authentication on Cloudflare Workers. 
+This MCP server runs on Cloudflare Workers and provides three tools:
+- ✅ **add** - Simple addition calculator
+- ✅ **calculate** - Multi-operation calculator (add, subtract, multiply, divide)
+- ✅ **create_presentation** - Creates PowerPoint presentations using Python
+
+## Architecture
+
+This project uses **two Cloudflare Workers**:
+1. **Main Worker** (TypeScript) - MCP server that handles tool requests
+2. **Python Worker** - PowerPoint generation service using python-pptx library
 
 ## Get started: 
 
@@ -11,6 +20,46 @@ This will deploy your MCP server to a URL like: `remote-mcp-server-authless.<you
 Alternatively, you can use the command line below to get the remote MCP Server created on your local machine:
 ```bash
 npm create cloudflare@latest -- my-mcp-server --template=cloudflare/ai/demos/remote-mcp-authless
+```
+
+## 🚀 Quick Deployment
+
+**Important:** Deploy the Python Worker FIRST, then the main worker.
+
+```powershell
+# Step 1: Deploy Python Worker
+cd python-worker
+wrangler deploy
+
+# Step 2: Deploy Main Worker
+cd ..
+wrangler deploy
+```
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed step-by-step instructions.
+
+## 🎨 Using the PowerPoint Tool
+
+The `create_presentation` tool accepts:
+- **title**: Presentation filename
+- **slides**: Array of slide objects with layout, title, and bullets
+
+Example:
+```json
+{
+  "title": "My Presentation",
+  "slides": [
+    {
+      "layout": "title",
+      "title": "Welcome"
+    },
+    {
+      "layout": "title_and_content",
+      "title": "Key Points",
+      "bullets": ["Point 1", "Point 2", "Point 3"]
+    }
+  ]
+}
 ```
 
 ## Customizing your MCP Server
@@ -47,4 +96,23 @@ Update with this configuration:
 }
 ```
 
-Restart Claude and you should see the tools become available. 
+Restart Claude and you should see the tools become available.
+
+## 📚 Documentation
+
+**[📖 Complete Documentation Index](./INDEX.md)** - Find any documentation quickly!
+
+### Quick Access
+- **[QUICKREF.md](./QUICKREF.md)** - Quick reference card with common commands
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Detailed deployment guide (step-by-step)
+- **[EXAMPLES.md](./EXAMPLES.md)** - PowerPoint usage examples and AI prompts
+- **[IMPLEMENTATION.md](./IMPLEMENTATION.md)** - Technical architecture details
+- **[SUMMARY.md](./SUMMARY.md)** - Complete project overview
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System architecture and diagrams
+- **[TESTING.md](./TESTING.md)** - Comprehensive testing guide
+- **[CHANGELOG.md](./CHANGELOG.md)** - Version history and roadmap
+
+## 🛠️ Helper Scripts
+
+- **`deploy.ps1`** - One-command deployment for both workers
+- **`dev.ps1`** - Instructions for local development setup 

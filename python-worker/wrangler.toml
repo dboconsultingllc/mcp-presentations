@@ -1,0 +1,9 @@
+# Configuration for the Python Worker that creates PowerPoint files
+name = "mcp-presentations-python"
+main = "src/index.py"
+compatibility_date = "2025-03-10"
+
+# Enable Python Workers support
+[python]
+# Install python-pptx library
+requirements = "requirements.txt"

@@ -51,6 +51,90 @@ export class MyMCP extends McpAgent {
 				return { content: [{ type: "text", text: String(result) }] };
 			},
 		);
+
+		// PowerPoint creation tool
+		this.server.tool(
+			"create_presentation",
+			{
+				title: z.string().describe("The title/filename of the presentation"),
+				slides: z
+					.array(
+						z.object({
+							layout: z
+								.enum(["title", "title_and_content", "blank"])
+								.optional()
+								.describe("The slide layout type"),
+							title: z.string().optional().describe("The slide title"),
+							bullets: z
+								.array(z.string())
+								.optional()
+								.describe("Array of bullet points for the slide"),
+						}),
+					)
+					.describe("Array of slide definitions"),
+			},
+			async ({ title, slides }) => {
+				try {
+					// Call the Python Worker to create the PowerPoint
+					const env = this.env as Env;
+					const pythonWorker = env.PYTHON_WORKER;
+
+					if (!pythonWorker) {
+						return {
+							content: [
+								{
+									type: "text",
+									text: "Error: Python Worker service binding not configured. Please check wrangler.jsonc configuration.",
+								},
+							],
+						};
+					}
+
+					const response = await pythonWorker.fetch("https://internal/create", {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({ title, slides }),
+					});
+
+					if (!response.ok) {
+						const errorText = await response.text();
+						return {
+							content: [
+								{
+									type: "text",
+									text: `Error creating presentation: ${errorText}`,
+								},
+							],
+						};
+					}
+
+					// Get the PowerPoint file as a blob
+					const blob = await response.blob();
+					const arrayBuffer = await blob.arrayBuffer();
+					const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+					return {
+						content: [
+							{
+								type: "text",
+								text: `✅ PowerPoint presentation "${title}.pptx" created successfully with ${slides.length} slide(s)!\n\nFile size: ${(arrayBuffer.byteLength / 1024).toFixed(2)} KB\n\nThe presentation has been generated. You can download it by requesting the file.`,
+							},
+						],
+					};
+				} catch (error) {
+					return {
+						content: [
+							{
+								type: "text",
+								text: `Error: Failed to create presentation - ${error instanceof Error ? error.message : String(error)}`,
+							},
+						],
+					};
+				}
+			},
+		);
 	}
 }
 
