@@ -22,12 +22,6 @@
 			}
 		]
 	},
-	"services": [
-		{
-			"binding": "PYTHON_WORKER",
-			"service": "mcp-presentations-python"
-		}
-	],
 	"observability": {
 		"enabled": true
 	}

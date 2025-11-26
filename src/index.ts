@@ -1,6 +1,7 @@
 import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import pptxgen from "pptxgenjs";
 
 // Define our MCP agent with tools
 export class MyMCP extends McpAgent {
@@ -75,51 +76,67 @@ export class MyMCP extends McpAgent {
 			},
 			async ({ title, slides }) => {
 				try {
-					// Call the Python Worker to create the PowerPoint
-					const env = this.env as Env;
-					const pythonWorker = env.PYTHON_WORKER;
+					// Create a new PowerPoint presentation using pptxgenjs
+					const pres = new pptxgen();
 
-					if (!pythonWorker) {
-						return {
-							content: [
-								{
-									type: "text",
-									text: "Error: Python Worker service binding not configured. Please check wrangler.jsonc configuration.",
-								},
-							],
-						};
+					// Add slides based on the configuration
+					for (const slideConfig of slides) {
+						const slide = pres.addSlide();
+						const layout = slideConfig.layout || "title_and_content";
+
+						if (layout === "title" && slideConfig.title) {
+							// Title slide - centered large text
+							slide.addText(slideConfig.title, {
+								x: 0.5,
+								y: "40%",
+								w: "90%",
+								h: 1.5,
+								fontSize: 44,
+								bold: true,
+								align: "center",
+								valign: "middle",
+							});
+						} else if (layout === "title_and_content") {
+							// Title and content slide
+							if (slideConfig.title) {
+								slide.addText(slideConfig.title, {
+									x: 0.5,
+									y: 0.5,
+									w: "90%",
+									h: 0.75,
+									fontSize: 32,
+									bold: true,
+									color: "363636",
+								});
+							}
+
+							// Add bullets if provided
+							if (slideConfig.bullets && slideConfig.bullets.length > 0) {
+								slide.addText(
+									slideConfig.bullets.map((bullet) => ({ text: bullet, options: { bullet: true } })),
+									{
+										x: 0.5,
+										y: 1.5,
+										w: "90%",
+										h: "70%",
+										fontSize: 20,
+										color: "363636",
+									},
+								);
+							}
+						}
+						// blank layout - just leave the slide empty
 					}
 
-					const response = await pythonWorker.fetch("https://internal/create", {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-						},
-						body: JSON.stringify({ title, slides }),
-					});
-
-					if (!response.ok) {
-						const errorText = await response.text();
-						return {
-							content: [
-								{
-									type: "text",
-									text: `Error creating presentation: ${errorText}`,
-								},
-							],
-						};
-					}
-
-					// Get the PowerPoint file as a blob
-					const blob = await response.blob();
-					const arrayBuffer = await blob.arrayBuffer();
-					const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+					// Generate the PowerPoint file
+					const output = (await pres.write({ outputType: "base64" })) as string;
+					const fileSize = Math.round((output.length * 3) / 4 / 1024); // Approximate size in KB
 
 					return {
 						content: [
 							{
 								type: "text",
-								text: `✅ PowerPoint presentation "${title}.pptx" created successfully with ${slides.length} slide(s)!\n\nFile size: ${(arrayBuffer.byteLength / 1024).toFixed(2)} KB\n\nThe presentation has been generated. You can download it by requesting the file.`,
+								text: `✅ PowerPoint presentation "${title}.pptx" created successfully with ${slides.length} slide(s)!\n\nFile size: ~${fileSize} KB\n\nThe presentation has been generated.`,
 							},
 						],
 					};
